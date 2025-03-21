@@ -4,38 +4,46 @@ import subprocess
 
 app = Flask(__name__)
 
-# תיקיות להעלאת קבצים ולפלט
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
+
+# יצירת התיקיות אם הן לא קיימות
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-@app.route('/', methods=['GET'])
-def home():
-    return jsonify({"message": "API is running"}), 200
-
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
+    # בדיקה אם קובץ התקבל בבקשה
     if 'file' not in request.files:
+        print("🚨 No file provided in request")
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files['file']
     filename = file.filename
     filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
 
-    # הגדרת תבנית לפלט קבצי השמע
+    # שמירת הקובץ
+    file.save(filepath)
+    print(f"✅ File saved at: {filepath}")  # 📌 בדיקה שהקובץ נשמר
+
+    # בדיקת תוכן התיקייה לאחר השמירה
+    print("📂 Files in uploads directory:", os.listdir(UPLOAD_FOLDER))  # 📌 הצגת הקבצים
+
+    # הגדרת נתיב הפלט עבור הקבצים החתוכים
     output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-    # שימוש ב-FFmpeg לחיתוך הקובץ לקטעים של 10 דקות (600 שניות)
+    # פקודת FFMPEG לחלוקת הקובץ (10 דקות = 600 שניות)
     command = f"ffmpeg -i {filepath} -f segment -segment_time 600 -c copy {output_pattern}"
+    print(f"🔄 Running command: {command}")  # 📌 הצגת הפקודה שתופעל
+
+    # הפעלת FFMPEG
     subprocess.run(command, shell=True)
 
-    # יצירת רשימה של קבצים מחולקים
-    parts = [f"/output/{f}" for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")]
+    # רשימת החלקים שנוצרו
+    parts = [f"output/{f}" for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")]
+    print(f"🎵 Created {len(parts)} audio parts: {parts}")  # 📌 בדיקת הפלט
 
-    return jsonify({"parts": parts}), 200
+    return jsonify({"parts": parts})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=5000)
