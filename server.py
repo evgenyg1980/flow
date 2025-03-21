@@ -84,9 +84,5 @@ def upload_to_drive(service, file_path):
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     return f"https://drive.google.com/uc?id={file.get('id')}"
 
-def upload_to_cloudinary(file_path):
-    result = cloudinary.uploader.upload(file_path, resource_type="video")
-    return result.get("secure_url")
-
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
