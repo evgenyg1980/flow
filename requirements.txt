@@ -3,4 +3,3 @@ gunicorn
 ffmpeg-python
 google-api-python-client
 oauth2client
-cloudinary
