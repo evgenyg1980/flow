@@ -1,8 +1,7 @@
-import os
-import re
-import uuid
-import subprocess
 from flask import Flask, request, jsonify, send_from_directory
+import os
+import subprocess
+import re
 
 app = Flask(__name__)
 
@@ -30,15 +29,8 @@ def split_audio():
 
     clear_output_folder()
 
-    # Optional: Create per-session folder if needed
-    # session_id = str(uuid.uuid4())
-    # session_output = os.path.join(OUTPUT_FOLDER, session_id)
-    # os.makedirs(session_output, exist_ok=True)
-    # output_pattern = os.path.join(session_output, "part_%03d.mp3")
-
     output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-    # Properly re-encode to MP3
     command = [
         "ffmpeg",
         "-i", filepath,
@@ -51,14 +43,15 @@ def split_audio():
     ]
 
     try:
-        result = subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    except subprocess.CalledProcessError as e:
-        return jsonify({
-            "error": "FFMPEG failed",
-            "details": e.stderr.decode()
-        }), 500
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = process.communicate()
 
-    # Get list of parts and sort
+        if process.returncode != 0:
+            return jsonify({"error": "FFMPEG failed", "details": stderr.decode()}), 500
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
     parts = sorted(
         [f"/download/{f}" for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")],
         key=lambda x: int(re.search(r"part_(\d+)", x).group(1))
