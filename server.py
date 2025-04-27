@@ -1,7 +1,9 @@
-from flask import Flask, request, jsonify, send_from_directory
 import os
-import subprocess
 import re
+import uuid
+import subprocess
+import threading
+from flask import Flask, request, jsonify, send_from_directory
 
 app = Flask(__name__)
 
@@ -17,6 +19,19 @@ def clear_output_folder():
         if os.path.isfile(file_path):
             os.remove(file_path)
 
+def split_audio_background(filepath, output_pattern):
+    command = [
+        "ffmpeg",
+        "-i", filepath,
+        "-f", "segment",
+        "-segment_time", "600",
+        "-c:a", "libmp3lame",
+        "-ar", "44100",
+        "-ac", "2",
+        output_pattern
+    ]
+    subprocess.run(command)
+
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
     if 'file' not in request.files:
@@ -31,33 +46,11 @@ def split_audio():
 
     output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-    command = [
-        "ffmpeg",
-        "-i", filepath,
-        "-f", "segment",
-        "-segment_time", "600",
-        "-c:a", "libmp3lame",
-        "-ar", "44100",
-        "-ac", "2",
-        output_pattern
-    ]
+    # Run ffmpeg in background
+    thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern))
+    thread.start()
 
-    try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
-
-        if process.returncode != 0:
-            return jsonify({"error": "FFMPEG failed", "details": stderr.decode()}), 500
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-    parts = sorted(
-        [f"/download/{f}" for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")],
-        key=lambda x: int(re.search(r"part_(\d+)", x).group(1))
-    )
-
-    return jsonify({"parts": parts})
+    return jsonify({"message": "Splitting started, check output later"}), 202
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
