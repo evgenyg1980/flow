@@ -1,6 +1,5 @@
 import os
 import re
-import uuid
 import subprocess
 import threading
 from flask import Flask, request, jsonify, send_from_directory
@@ -69,7 +68,14 @@ def split_status():
     with open(STATUS_FILE, "r") as f:
         status = f.read().strip()
 
-    return jsonify({"status": status}), 200
+    parts = []
+    if status == "done":
+        parts = sorted(
+            [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")],
+            key=lambda x: int(re.search(r"part_(\\d+)", x).group(1))
+        )
+
+    return jsonify({"status": status, "parts": parts}), 200
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
