@@ -9,6 +9,7 @@ app = Flask(__name__)
 
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
+STATUS_FILE = "status.txt"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -20,6 +21,10 @@ def clear_output_folder():
             os.remove(file_path)
 
 def split_audio_background(filepath, output_pattern):
+    # כתיבת סטטוס התחלתי
+    with open(STATUS_FILE, "w") as f:
+        f.write("processing")
+
     command = [
         "ffmpeg",
         "-i", filepath,
@@ -31,6 +36,10 @@ def split_audio_background(filepath, output_pattern):
         output_pattern
     ]
     subprocess.run(command)
+
+    # כתיבת סטטוס סיום
+    with open(STATUS_FILE, "w") as f:
+        f.write("done")
 
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
@@ -46,11 +55,21 @@ def split_audio():
 
     output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-    # Run ffmpeg in background
+    # Start splitting in background
     thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern))
     thread.start()
 
-    return jsonify({"message": "Splitting started, check output later"}), 202
+    return jsonify({"message": "Splitting started"}), 202
+
+@app.route('/split-status', methods=['GET'])
+def split_status():
+    if not os.path.exists(STATUS_FILE):
+        return jsonify({"status": "no process started"}), 404
+
+    with open(STATUS_FILE, "r") as f:
+        status = f.read().strip()
+
+    return jsonify({"status": status}), 200
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
