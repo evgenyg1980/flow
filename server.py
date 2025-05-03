@@ -20,25 +20,30 @@ def clear_output_folder():
             os.remove(file_path)
 
 def split_audio_background(filepath, output_pattern):
-    # כתיבת סטטוס התחלתי
-    with open(STATUS_FILE, "w") as f:
-        f.write("processing")
+    try:
+        # כתיבת סטטוס התחלתי
+        with open(STATUS_FILE, "w") as f:
+            f.write("processing")
 
-    command = [
-        "ffmpeg",
-        "-i", filepath,
-        "-f", "segment",
-        "-segment_time", "600",
-        "-c:a", "libmp3lame",
-        "-ar", "44100",
-        "-ac", "2",
-        output_pattern
-    ]
-    subprocess.run(command)
+        command = [
+            "ffmpeg",
+            "-i", filepath,
+            "-f", "segment",
+            "-segment_time", "600",
+            "-c:a", "libmp3lame",
+            "-ar", "44100",
+            "-ac", "2",
+            output_pattern
+        ]
+        subprocess.run(command, check=True)
 
-    # כתיבת סטטוס סיום
-    with open(STATUS_FILE, "w") as f:
-        f.write("done")
+        # כתיבת סטטוס סיום
+        with open(STATUS_FILE, "w") as f:
+            f.write("done")
+
+    except Exception as e:
+        with open(STATUS_FILE, "w") as f:
+            f.write(f"error: {str(e)}")
 
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
@@ -62,20 +67,24 @@ def split_audio():
 
 @app.route('/split-status', methods=['GET'])
 def split_status():
-    if not os.path.exists(STATUS_FILE):
-        return jsonify({"status": "no process started"}), 404
+    try:
+        if not os.path.exists(STATUS_FILE):
+            return jsonify({"status": "no process started"}), 404
 
-    with open(STATUS_FILE, "r") as f:
-        status = f.read().strip()
+        with open(STATUS_FILE, "r") as f:
+            status = f.read().strip()
 
-    parts = []
-    if status == "done":
-        parts = sorted(
-            [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")],
-            key=lambda x: int(re.search(r"part_(\\d+)", x).group(1))
-        )
+        parts = []
+        if status == "done":
+            parts = sorted(
+                [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")],
+                key=lambda x: int(re.search(r"part_(\\d+)", x).group(1))
+            )
 
-    return jsonify({"status": status, "parts": parts}), 200
+        return jsonify({"status": status, "parts": parts}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
