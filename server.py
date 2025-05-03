@@ -21,7 +21,6 @@ def clear_output_folder():
 
 def split_audio_background(filepath, output_pattern):
     try:
-        # כתיבת סטטוס התחלתי
         with open(STATUS_FILE, "w") as f:
             f.write("processing")
 
@@ -37,9 +36,14 @@ def split_audio_background(filepath, output_pattern):
         ]
         subprocess.run(command, check=True)
 
-        # כתיבת סטטוס סיום
-        with open(STATUS_FILE, "w") as f:
-            f.write("done")
+        # בדיקה אם נוצר לפחות קובץ אחד
+        parts = [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")]
+        if parts:
+            with open(STATUS_FILE, "w") as f:
+                f.write("done")
+        else:
+            with open(STATUS_FILE, "w") as f:
+                f.write("error: no parts created")
 
     except Exception as e:
         with open(STATUS_FILE, "w") as f:
