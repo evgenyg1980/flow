@@ -36,7 +36,6 @@ def split_audio_background(filepath, output_pattern):
         ]
         subprocess.run(command, check=True)
 
-        # בדיקה אם נוצר לפחות קובץ אחד
         parts = [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")]
         if parts:
             with open(STATUS_FILE, "w") as f:
@@ -63,7 +62,6 @@ def split_audio():
 
     output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-    # Start splitting in background
     thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern))
     thread.start()
 
@@ -80,10 +78,13 @@ def split_status():
 
         parts = []
         if status == "done":
-            parts = sorted(
-                [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")],
-                key=lambda x: int(re.search(r"part_(\\d+)", x).group(1))
-            )
+            part_files = []
+            for f in os.listdir(OUTPUT_FOLDER):
+                if f.endswith(".mp3"):
+                    match = re.search(r"part_(\d+)", f)
+                    if match:
+                        part_files.append((int(match.group(1)), f))
+            parts = [f[1] for f in sorted(part_files)]
 
         return jsonify({"status": status, "parts": parts}), 200
 
