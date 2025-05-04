@@ -19,10 +19,10 @@ def clear_output_folder():
         if os.path.isfile(file_path):
             os.remove(file_path)
 
-def split_audio_background(filepath, output_pattern):
+def split_audio_background(filepath, output_pattern, meeting_id):
     try:
         with open(STATUS_FILE, "w") as f:
-            f.write("processing")
+            f.write(f"processing|{meeting_id}")
 
         command = [
             "ffmpeg",
@@ -39,14 +39,14 @@ def split_audio_background(filepath, output_pattern):
         parts = [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")]
         if parts:
             with open(STATUS_FILE, "w") as f:
-                f.write("done")
+                f.write(f"done|{meeting_id}")
         else:
             with open(STATUS_FILE, "w") as f:
-                f.write("error: no parts created")
+                f.write(f"error: no parts created|{meeting_id}")
 
     except Exception as e:
         with open(STATUS_FILE, "w") as f:
-            f.write(f"error: {str(e)}")
+            f.write(f"error: {str(e)}|{meeting_id}")
 
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
@@ -58,11 +58,13 @@ def split_audio():
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
+    meeting_id = request.form.get("meeting_id", "")
+
     clear_output_folder()
 
     output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-    thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern))
+    thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id))
     thread.start()
 
     return jsonify({"message": "Splitting started"}), 202
@@ -74,7 +76,9 @@ def split_status():
             return jsonify({"status": "no process started"}), 404
 
         with open(STATUS_FILE, "r") as f:
-            status = f.read().strip()
+            status_line = f.read().strip()
+
+        status, meeting_id = (status_line.split("|") + [""])[:2]
 
         parts = []
         if status == "done":
@@ -86,7 +90,7 @@ def split_status():
                         part_files.append((int(match.group(1)), f))
             parts = [f[1] for f in sorted(part_files)]
 
-        return jsonify({"status": status, "parts": parts}), 200
+        return jsonify({"status": status, "meeting_id": meeting_id, "parts": parts}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
