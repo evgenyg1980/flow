@@ -1,5 +1,6 @@
 import os
 import re
+import uuid
 import subprocess
 import threading
 from flask import Flask, request, jsonify, send_from_directory
@@ -20,33 +21,21 @@ def clear_output_folder():
             os.remove(file_path)
 
 def split_audio_background(filepath, output_pattern, meeting_id):
-    try:
-        with open(STATUS_FILE, "w") as f:
-            f.write(f"processing|{meeting_id}")
+    command = [
+        "ffmpeg",
+        "-i", filepath,
+        "-f", "segment",
+        "-segment_time", "600",
+        "-c:a", "libmp3lame",
+        "-ar", "44100",
+        "-ac", "2",
+        output_pattern
+    ]
+    subprocess.run(command)
 
-        command = [
-            "ffmpeg",
-            "-i", filepath,
-            "-f", "segment",
-            "-segment_time", "600",
-            "-c:a", "libmp3lame",
-            "-ar", "44100",
-            "-ac", "2",
-            output_pattern
-        ]
-        subprocess.run(command, check=True)
-
-        parts = [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")]
-        if parts:
-            with open(STATUS_FILE, "w") as f:
-                f.write(f"done|{meeting_id}")
-        else:
-            with open(STATUS_FILE, "w") as f:
-                f.write(f"error: no parts created|{meeting_id}")
-
-    except Exception as e:
-        with open(STATUS_FILE, "w") as f:
-            f.write(f"error: {str(e)}|{meeting_id}")
+    # כתיבת סטטוס סיום עם מזהה
+    with open(STATUS_FILE, "w") as f:
+        f.write(f"done|{meeting_id}")
 
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
@@ -58,12 +47,13 @@ def split_audio():
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
-    meeting_id = request.form.get("meeting_id", "")
+    meeting_id = request.form.get("meeting_id")
+    print("[LOG] Received meeting_id:", meeting_id)
 
     clear_output_folder()
-
     output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
+    # Start splitting in background
     thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id))
     thread.start()
 
@@ -71,29 +61,26 @@ def split_audio():
 
 @app.route('/split-status', methods=['GET'])
 def split_status():
-    try:
-        if not os.path.exists(STATUS_FILE):
-            return jsonify({"status": "no process started"}), 404
+    if not os.path.exists(STATUS_FILE):
+        return jsonify({"status": "no process started"}), 404
 
-        with open(STATUS_FILE, "r") as f:
-            status_line = f.read().strip()
+    with open(STATUS_FILE, "r") as f:
+        content = f.read().strip()
 
-        status, meeting_id = (status_line.split("|") + [""])[:2]
+    parts = [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")]
+    parts.sort()
 
-        parts = []
-        if status == "done":
-            part_files = []
-            for f in os.listdir(OUTPUT_FOLDER):
-                if f.endswith(".mp3"):
-                    match = re.search(r"part_(\d+)", f)
-                    if match:
-                        part_files.append((int(match.group(1)), f))
-            parts = [f[1] for f in sorted(part_files)]
+    if "|" in content:
+        status, meeting_id = content.split("|", 1)
+    else:
+        status = content
+        meeting_id = None
 
-        return jsonify({"status": status, "meeting_id": meeting_id, "parts": parts}), 200
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "status": status,
+        "meeting_id": meeting_id,
+        "parts": parts
+    }), 200
 
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
