@@ -19,14 +19,34 @@ def clear_output_folder():
         if os.path.isfile(file_path):
             os.remove(file_path)
 
+def convert_to_mp3(input_path):
+    output_path = input_path.rsplit('.', 1)[0] + ".mp3"
+    command = [
+        "ffmpeg",
+        "-y",
+        "-i", input_path,
+        "-acodec", "libmp3lame",
+        output_path
+    ]
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        raise Exception("FFmpeg conversion failed")
+    return output_path
+
 def split_audio_background(filepath, output_pattern, meeting_id):
-    # כתיבת סטטוס התחלתי
     with open(STATUS_FILE, "w") as f:
         f.write("processing")
 
+    try:
+        mp3_path = convert_to_mp3(filepath)
+    except Exception:
+        with open(STATUS_FILE, "w") as f:
+            f.write("error: conversion failed")
+        return
+
     command = [
         "ffmpeg",
-        "-i", filepath,
+        "-i", mp3_path,
         "-f", "segment",
         "-segment_time", "600",
         "-c:a", "libmp3lame",
@@ -36,7 +56,6 @@ def split_audio_background(filepath, output_pattern, meeting_id):
     ]
     subprocess.run(command)
 
-    # כתיבת סטטוס סיום
     with open(STATUS_FILE, "w") as f:
         f.write("done")
 
@@ -51,7 +70,6 @@ def split_audio():
     file = request.files['file']
     meeting_id = request.form['meeting_id']
 
-    # שמירה בשם ייחודי
     ext = os.path.splitext(file.filename)[-1].lower()
     filename = f"{uuid.uuid4().hex}{ext if ext else '.mp3'}"
     filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -61,7 +79,6 @@ def split_audio():
 
     output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-    # הפעלת חיתוך ברקע
     thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id))
     thread.start()
 
