@@ -1,5 +1,4 @@
 import os
-import re
 import uuid
 import subprocess
 import threading
@@ -21,6 +20,10 @@ def clear_output_folder():
             os.remove(file_path)
 
 def split_audio_background(filepath, output_pattern, meeting_id):
+    # כתיבת סטטוס התחלתי
+    with open(STATUS_FILE, "w") as f:
+        f.write("processing")
+
     command = [
         "ffmpeg",
         "-i", filepath,
@@ -33,27 +36,32 @@ def split_audio_background(filepath, output_pattern, meeting_id):
     ]
     subprocess.run(command)
 
-    # כתיבת סטטוס סיום עם מזהה
+    # כתיבת סטטוס סיום
     with open(STATUS_FILE, "w") as f:
-        f.write(f"done|{meeting_id}")
+        f.write("done")
+
+    with open("meeting_id.txt", "w") as f:
+        f.write(meeting_id)
 
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file provided"}), 400
+    if 'file' not in request.files or 'meeting_id' not in request.form:
+        return jsonify({"error": "Missing file or meeting_id"}), 400
 
     file = request.files['file']
-    filename = file.filename
+    meeting_id = request.form['meeting_id']
+
+    # שמירה בשם ייחודי
+    ext = os.path.splitext(file.filename)[-1].lower()
+    filename = f"{uuid.uuid4().hex}{ext if ext else '.mp3'}"
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
-    meeting_id = request.form.get("meeting_id")
-    print("[LOG] Received meeting_id:", meeting_id)
-
     clear_output_folder()
+
     output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-    # Start splitting in background
+    # הפעלת חיתוך ברקע
     thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id))
     thread.start()
 
@@ -65,16 +73,14 @@ def split_status():
         return jsonify({"status": "no process started"}), 404
 
     with open(STATUS_FILE, "r") as f:
-        content = f.read().strip()
+        status = f.read().strip()
+
+    meeting_id = "unknown"
+    if os.path.exists("meeting_id.txt"):
+        with open("meeting_id.txt", "r") as f:
+            meeting_id = f.read().strip()
 
     parts = [f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")]
-    parts.sort()
-
-    if "|" in content:
-        status, meeting_id = content.split("|", 1)
-    else:
-        status = content
-        meeting_id = None
 
     return jsonify({
         "status": status,
@@ -82,9 +88,12 @@ def split_status():
         "parts": parts
     }), 200
 
-@app.route('/download/<filename>', methods=['GET'])
+@app.route('/download/<path:filename>', methods=['GET'])
 def download_file(filename):
-    return send_from_directory(OUTPUT_FOLDER, filename)
+    file_path = os.path.join(OUTPUT_FOLDER, filename)
+    if not os.path.isfile(file_path):
+        return jsonify({"error": "File not found"}), 404
+    return send_from_directory(OUTPUT_FOLDER, filename, as_attachment=True)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
