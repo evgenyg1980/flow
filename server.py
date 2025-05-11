@@ -10,7 +10,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
-WEBHOOK_URL = "https://hook.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← כתובת ה-Webhook של תסריט 2.6
+WEBHOOK_URL = "https://hook.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← עדכן לפי תסריט 2.6 שלך
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -22,23 +22,26 @@ def clear_output_folder():
             os.remove(file_path)
 
 def split_audio_background(filepath, output_pattern, meeting_id):
-    command = [
-        "ffmpeg",
-        "-i", filepath,
-        "-f", "segment",
-        "-segment_time", "600",
-        "-c:a", "libmp3lame",
-        "-ar", "44100",
-        "-ac", "2",
-        output_pattern
-    ]
-    subprocess.run(command)
-
-    with open(STATUS_FILE, "w") as f:
-        f.write(f"done|{meeting_id}")
-
-    print(f"[DEBUG] Sending webhook to: {WEBHOOK_URL} with meeting_id: {meeting_id}")
     try:
+        print("[DEBUG] Starting ffmpeg split...")
+        command = [
+            "ffmpeg",
+            "-i", filepath,
+            "-f", "segment",
+            "-segment_time", "600",
+            "-c:a", "libmp3lame",
+            "-ar", "44100",
+            "-ac", "2",
+            output_pattern
+        ]
+        subprocess.run(command, check=True)
+        print("[DEBUG] Split completed")
+
+        with open(STATUS_FILE, "w") as f:
+            f.write(f"done|{meeting_id}")
+        print("[DEBUG] Status file updated")
+
+        print(f"[DEBUG] Sending webhook to: {WEBHOOK_URL} with meeting_id: {meeting_id}")
         response = requests.post(
             WEBHOOK_URL,
             headers={"Content-Type": "application/json"},
@@ -46,8 +49,11 @@ def split_audio_background(filepath, output_pattern, meeting_id):
         )
         response.raise_for_status()
         print(f"[INFO] Webhook sent to Make with meeting_id: {meeting_id}")
+
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] ffmpeg failed: {e}")
     except Exception as e:
-        print(f"[ERROR] Failed to send webhook: {e}")
+        print(f"[ERROR] Unexpected error: {e}")
 
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
