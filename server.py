@@ -10,7 +10,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
-WEBHOOK_URL = "https://hook.eu2.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← החלף כאן לכתובת האמיתית שלך
+WEBHOOK_URL = "https://hook.make.com/PASTE_YOUR_WEBHOOK_URL_HERE"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -37,7 +37,6 @@ def split_audio_background(filepath, output_pattern, meeting_id):
     with open(STATUS_FILE, "w") as f:
         f.write(f"done|{meeting_id}")
 
-    # שליחת Webhook ל-Make
     try:
         response = requests.post(WEBHOOK_URL, json={"meeting_id": meeting_id})
         response.raise_for_status()
@@ -109,8 +108,8 @@ def split_status():
 def download_file(filename):
     return send_from_directory(OUTPUT_FOLDER, filename)
 
-if __name__ == '__main__':
+# הגדרה שמכבדת את $PORT שמוגדר על ידי Railway
+if __name__ != "__main__":
     import os
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
-
+    app.run(host="0.0.0.0", port=port)
