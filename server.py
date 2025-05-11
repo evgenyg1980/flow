@@ -10,7 +10,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
-WEBHOOK_URL = "https://hook.eu2.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← החלף לכתובת האמיתית שלך
+WEBHOOK_URL = "https://hook.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← כתובת ה-Webhook של תסריט 2.6
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -37,8 +37,13 @@ def split_audio_background(filepath, output_pattern, meeting_id):
     with open(STATUS_FILE, "w") as f:
         f.write(f"done|{meeting_id}")
 
+    print(f"[DEBUG] Sending webhook to: {WEBHOOK_URL} with meeting_id: {meeting_id}")
     try:
-        response = requests.post(WEBHOOK_URL, json={"meeting_id": meeting_id})
+        response = requests.post(
+            WEBHOOK_URL,
+            headers={"Content-Type": "application/json"},
+            json={"meeting_id": meeting_id}
+        )
         response.raise_for_status()
         print(f"[INFO] Webhook sent to Make with meeting_id: {meeting_id}")
     except Exception as e:
@@ -107,9 +112,3 @@ def split_status():
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
     return send_from_directory(OUTPUT_FOLDER, filename)
-
-@app.route('/health', methods=['GET'])
-def health():
-    return jsonify({"status": "ok"}), 200
-
-
