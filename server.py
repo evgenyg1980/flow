@@ -10,7 +10,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
-WEBHOOK_URL = "https://hook.make.com/PASTE_YOUR_WEBHOOK_URL_HERE"
+WEBHOOK_URL = "https://hook.make.com/PASTE_YOUR_WEBHOOK_URL_HERE"  # ← החלף לכתובת האמיתית שלך
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -107,4 +107,3 @@ def split_status():
 @app.route('/download/<filename>', methods=['GET'])
 def download_file(filename):
     return send_from_directory(OUTPUT_FOLDER, filename)
-
