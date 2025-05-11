@@ -10,7 +10,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
-WEBHOOK_URL = "https://hook.make.com/PASTE_YOUR_WEBHOOK_URL_HERE"  # ← החלף לכתובת האמיתית שלך
+WEBHOOK_URL = "https://hook.eu2.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← החלף לכתובת האמיתית שלך
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
