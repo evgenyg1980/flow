@@ -1,5 +1,6 @@
-flask
-gunicorn
-ffmpeg-python
-google-api-python-client
-oauth2client
+flask  
+gunicorn  
+ffmpeg-python  
+google-api-python-client  
+oauth2client  
+werkzeug
