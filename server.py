@@ -1,20 +1,16 @@
-from flask import Flask, request, jsonify
-import requests
-import os
+from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
-from urllib.parse import urlparse
+import os
 import threading
 import subprocess
+import requests
 
 app = Flask(__name__)
 
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
-AIRTABLE_API_KEY = "YOUR_AIRTABLE_API_KEY"
-AIRTABLE_BASE_ID = "app9jheXQXzelcTrT"
-AIRTABLE_TABLE_NAME = "tblFAHIOjG1wLAK6T"
-WEBHOOK_URL = "https://hook.eu2.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"
+WEBHOOK_URL = "https://hook.eu2.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← עדכן ל-Webhook של 2.6
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -24,14 +20,6 @@ def clear_output_folder():
         file_path = os.path.join(OUTPUT_FOLDER, f)
         if os.path.isfile(file_path):
             os.remove(file_path)
-
-def download_file_from_url(url, filename):
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(filename, 'wb') as f:
-            f.write(response.content)
-        return True
-    return False
 
 def split_audio_background(filepath, output_pattern, meeting_id):
     try:
@@ -51,6 +39,7 @@ def split_audio_background(filepath, output_pattern, meeting_id):
 
         with open(STATUS_FILE, "w") as f:
             f.write(f"done|{meeting_id}")
+        print("[DEBUG] Status file updated")
 
         print(f"[DEBUG] Sending webhook to: {WEBHOOK_URL} with meeting_id: {meeting_id}")
         response = requests.post(
@@ -66,44 +55,50 @@ def split_audio_background(filepath, output_pattern, meeting_id):
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
 
-@app.route("/")
-def index():
-    return "Server is running."
-
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
-    meeting_id = request.json.get("meeting_id")
+    # DEBUG BLOCK
+    print("===== [DEBUG] =====")
+    print("Content-Type:", request.content_type)
+    print("Headers:", dict(request.headers))
+    print("Form keys:", list(request.form.keys()))
+    print("Files keys:", list(request.files.keys()))
+    print("===================")
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No selected file"}), 400
+
+    allowed_extensions = ['mp3', 'wav', 'm4a']
+    if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+        return jsonify({"error": "Invalid file type. Allowed types: mp3, wav, m4a"}), 400
+
+    meeting_id = request.form.get("meeting_id")
     if not meeting_id:
         return jsonify({"error": "Missing meeting_id"}), 400
 
-    airtable_url = f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/{AIRTABLE_TABLE_NAME}/{meeting_id}"
-    headers = {
-        "Authorization": f"Bearer {AIRTABLE_API_KEY}"
-    }
-    response = requests.get(airtable_url, headers=headers)
-
-    if response.status_code != 200:
-        return jsonify({"error": "Failed to fetch record from Airtable"}), 500
-
-    record = response.json()
     try:
-        file_url = record['fields']['קובץ ידני'][0]['url']
-    except (KeyError, IndexError):
-        return jsonify({"error": "File not found in Airtable record"}), 404
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
 
-    filename = secure_filename(urlparse(file_url).path.split('/')[-1])
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
+        print(f"[INFO] Received file: {filename}")
+        print(f"[INFO] Meeting ID: {meeting_id}")
 
-    if not download_file_from_url(file_url, filepath):
-        return jsonify({"error": "Failed to download audio file"}), 500
+        clear_output_folder()
+        output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-    clear_output_folder()
-    output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
+        thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id))
+        thread.start()
 
-    thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id))
-    thread.start()
+        return jsonify({"message": "Splitting started"}), 202
 
-    return jsonify({"message": "Splitting started"}), 202
+    except Exception as e:
+        print(f"[ERROR] Failed to process file: {e}")
+        return jsonify({"error": "Internal server error", "details": str(e)}), 500
 
 @app.route('/split-status', methods=['GET'])
 def split_status():
@@ -128,5 +123,9 @@ def split_status():
         "parts": parts
     }), 200
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+@app.route('/download/<filename>', methods=['GET'])
+def download_file(filename):
+    return send_from_directory(OUTPUT_FOLDER, filename)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
