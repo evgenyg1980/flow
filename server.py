@@ -10,7 +10,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
-WEBHOOK_URL = "https://hook.eu2.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← עדכן ל-Webhook של 2.6
+DEFAULT_WEBHOOK_URL = "https://hook.eu2.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← ברירת מחדל (של 2.6 למשל)
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -21,7 +21,7 @@ def clear_output_folder():
         if os.path.isfile(file_path):
             os.remove(file_path)
 
-def split_audio_background(filepath, output_pattern, meeting_id):
+def split_audio_background(filepath, output_pattern, meeting_id, webhook_url):
     try:
         print("[DEBUG] Starting ffmpeg split...")
         command = [
@@ -41,9 +41,9 @@ def split_audio_background(filepath, output_pattern, meeting_id):
             f.write(f"done|{meeting_id}")
         print("[DEBUG] Status file updated")
 
-        print(f"[DEBUG] Sending webhook to: {WEBHOOK_URL} with meeting_id: {meeting_id}")
+        print(f"[DEBUG] Sending webhook to: {webhook_url} with meeting_id: {meeting_id}")
         response = requests.post(
-            WEBHOOK_URL,
+            webhook_url,
             headers={"Content-Type": "application/json"},
             json={"meeting_id": meeting_id}
         )
@@ -57,7 +57,6 @@ def split_audio_background(filepath, output_pattern, meeting_id):
 
 @app.route('/split-audio', methods=['POST'])
 def split_audio():
-    # DEBUG BLOCK
     print("===== [DEBUG] =====")
     print("Content-Type:", request.content_type)
     print("Headers:", dict(request.headers))
@@ -77,6 +76,8 @@ def split_audio():
         return jsonify({"error": "Invalid file type. Allowed types: mp3, wav, m4a"}), 400
 
     meeting_id = request.form.get("meeting_id")
+    webhook_url = request.form.get("webhook_url", DEFAULT_WEBHOOK_URL)
+
     if not meeting_id:
         return jsonify({"error": "Missing meeting_id"}), 400
 
@@ -87,11 +88,12 @@ def split_audio():
 
         print(f"[INFO] Received file: {filename}")
         print(f"[INFO] Meeting ID: {meeting_id}")
+        print(f"[INFO] Webhook URL: {webhook_url}")
 
         clear_output_folder()
         output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-        thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id))
+        thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id, webhook_url))
         thread.start()
 
         return jsonify({"message": "Splitting started"}), 202
