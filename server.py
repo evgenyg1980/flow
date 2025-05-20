@@ -37,6 +37,17 @@ def split_audio_background(filepath, output_pattern, meeting_id, webhook_url):
         subprocess.run(command, check=True)
         print("[DEBUG] Split completed")
 
+        parts = sorted([f for f in os.listdir(OUTPUT_FOLDER) if f.endswith(".mp3")])
+        files_info = []
+        for part in parts:
+            part_path = os.path.join(OUTPUT_FOLDER, part)
+            size = os.path.getsize(part_path)
+            files_info.append({
+                "file_name": part,
+                "file_url": f"https://flow-audio-server.onrender.com/download/{part}",
+                "size": size
+            })
+
         with open(STATUS_FILE, "w") as f:
             f.write(f"done|{meeting_id}")
         print("[DEBUG] Status file updated")
@@ -45,7 +56,11 @@ def split_audio_background(filepath, output_pattern, meeting_id, webhook_url):
         response = requests.post(
             webhook_url,
             headers={"Content-Type": "application/json"},
-            json={"meeting_id": meeting_id}
+            json={
+                "meeting_id": meeting_id,
+                "status": "done",
+                "parts": files_info
+            }
         )
         response.raise_for_status()
         print(f"[INFO] Webhook sent to Make with meeting_id: {meeting_id}")
