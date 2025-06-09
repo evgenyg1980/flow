@@ -10,7 +10,15 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
-DEFAULT_WEBHOOK_URL = "https://hook.eu2.make.com/ni7rqt3m1xtgsb5eiqehunkg97k45jm1"  # ← ברירת מחדל (של 2.6 למשל)
+
+# ברירת מחדל למקרה שאין התאמה
+DEFAULT_WEBHOOK_URL = "https://hook.eu2.make.com/ni7rqt3m1xtgsb5eiqehunkg97k45jm1"
+
+# זיהוי סביבה לפי מזהה Base של Airtable
+WEBHOOK_MAP = {
+    "appXLoxRKrV2EDOlB": os.getenv("WEBHOOK_ORI"),      # אורי
+    "app9jheXQXzelcTrT": os.getenv("WEBHOOK_MARINA")    # מרינה
+}
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -91,7 +99,8 @@ def split_audio():
         return jsonify({"error": "Invalid file type. Allowed types: mp3, wav, m4a"}), 400
 
     meeting_id = request.form.get("meeting_id")
-    webhook_url = request.form.get("webhook_url", DEFAULT_WEBHOOK_URL)
+    base_id = request.form.get("base_id")  # ← זיהוי הסביבה
+    webhook_url = WEBHOOK_MAP.get(base_id, DEFAULT_WEBHOOK_URL)
 
     if not meeting_id:
         return jsonify({"error": "Missing meeting_id"}), 400
@@ -103,6 +112,7 @@ def split_audio():
 
         print(f"[INFO] Received file: {filename}")
         print(f"[INFO] Meeting ID: {meeting_id}")
+        print(f"[INFO] Base ID: {base_id}")
         print(f"[INFO] Webhook URL: {webhook_url}")
 
         clear_output_folder()
