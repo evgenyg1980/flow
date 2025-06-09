@@ -10,7 +10,7 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
-DEFAULT_WEBHOOK_URL = "https://hook.eu2.make.com/undkzgf3l8jry9jhw2ri2w2t6f52q6g6"  # ← ברירת מחדל (של 2.6 למשל)
+DEFAULT_WEBHOOK_URL = "https://hook.eu2.make.com/ni7rqt3m1xtgsb5eiqehunkg97k45jm1"  # ← ברירת מחדל (של 2.6 למשל)
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
