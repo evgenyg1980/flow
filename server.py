@@ -29,7 +29,7 @@ def clear_output_folder():
         if os.path.isfile(file_path):
             os.remove(file_path)
 
-def split_audio_background(filepath, output_pattern, meeting_id, webhook_url):
+def split_audio_background(filepath, output_pattern, meeting_id, webhook_url, base_id=None):
     try:
         print("[DEBUG] Starting ffmpeg split...")
         command = [
@@ -66,6 +66,7 @@ def split_audio_background(filepath, output_pattern, meeting_id, webhook_url):
             headers={"Content-Type": "application/json"},
             json={
                 "meeting_id": meeting_id,
+                "base_id": base_id,
                 "status": "done",
                 "parts": files_info
             }
@@ -127,7 +128,7 @@ def split_audio():
         clear_output_folder()
         output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-        thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id, webhook_url))
+        thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id, webhook_url, base_id))
         thread.start()
 
         return jsonify({"message": "Splitting started"}), 202
