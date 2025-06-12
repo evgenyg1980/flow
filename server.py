@@ -99,8 +99,17 @@ def split_audio():
         return jsonify({"error": "Invalid file type. Allowed types: mp3, wav, m4a"}), 400
 
     meeting_id = request.form.get("meeting_id")
-    base_id = request.form.get("base_id")  # ← זיהוי הסביבה
-    webhook_url = WEBHOOK_MAP.get(base_id, DEFAULT_WEBHOOK_URL)
+    base_id = request.form.get("base_id")
+
+    # שליפת כתובת webhook בצורה חכמה – כולל תמיכה ב-Make
+    webhook_url = request.form.get("webhook_url")
+    if not webhook_url:
+        for key in request.form:
+            if "webhook_url" in key and "https://hook.eu2.make.com" in request.form[key]:
+                webhook_url = request.form[key]
+                break
+    if not webhook_url:
+        webhook_url = WEBHOOK_MAP.get(base_id, DEFAULT_WEBHOOK_URL)
 
     if not meeting_id:
         return jsonify({"error": "Missing meeting_id"}), 400
