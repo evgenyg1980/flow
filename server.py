@@ -96,13 +96,19 @@ def split_audio():
         return jsonify({"error": "No selected file"}), 400
 
     allowed_extensions = ['mp3', 'wav', 'm4a']
-    if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+    filename = secure_filename(file.filename)
+    extension = filename.split('.')[-1].lower()
+
+    if extension not in allowed_extensions:
         return jsonify({"error": "Invalid file type. Allowed types: mp3, wav, m4a"}), 400
+
+    # שמור בשם עם סיומת נכונה
+    saved_filename = f"1.{extension}"
+    filepath = os.path.join(UPLOAD_FOLDER, saved_filename)
 
     meeting_id = request.form.get("meeting_id")
     base_id = request.form.get("base_id")
 
-    # שליפת כתובת webhook בצורה חכמה – כולל תמיכה ב-Make
     webhook_url = request.form.get("webhook_url")
     if not webhook_url:
         for key in request.form:
@@ -116,11 +122,9 @@ def split_audio():
         return jsonify({"error": "Missing meeting_id"}), 400
 
     try:
-        filename = secure_filename(file.filename)
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
-        print(f"[INFO] Received file: {filename}")
+        print(f"[INFO] Received file: {saved_filename}")
         print(f"[INFO] Meeting ID: {meeting_id}")
         print(f"[INFO] Base ID: {base_id}")
         print(f"[INFO] Webhook URL: {webhook_url}")
