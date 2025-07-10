@@ -11,13 +11,11 @@ UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
 
-# ברירת מחדל למקרה שאין התאמה
 DEFAULT_WEBHOOK_URL = "https://hook.eu2.make.com/ni7rqt3m1xtgsb5eiqehunkg97k45jm1"
 
-# זיהוי סביבה לפי מזהה Base של Airtable
 WEBHOOK_MAP = {
-    "appXLoxRKrV2EDOlB": os.getenv("WEBHOOK_ORI"),      # אורי
-    "app9jheXQXzelcTrT": os.getenv("WEBHOOK_MARINA")    # מרינה
+    "appXLoxRKrV2EDOlB": os.getenv("WEBHOOK_ORI"),
+    "app9jheXQXzelcTrT": os.getenv("WEBHOOK_MARINA")
 }
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -100,9 +98,9 @@ def split_audio():
     extension = filename.split('.')[-1].lower()
 
     if extension not in allowed_extensions:
-        return jsonify({"error": "Invalid file type. Allowed types: mp3, wav, m4a"}), 400
+        return jsonify({"error": f"Invalid file extension: .{extension}. Allowed: {allowed_extensions}"}), 400
 
-    # שמור בשם עם סיומת נכונה
+    # שמור תמיד בשם בטוח עם הסיומת הנכונה
     saved_filename = f"1.{extension}"
     filepath = os.path.join(UPLOAD_FOLDER, saved_filename)
 
@@ -135,7 +133,7 @@ def split_audio():
         thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id, webhook_url, base_id))
         thread.start()
 
-        return jsonify({"message": "Splitting started"}), 202
+        return jsonify({"message": f"Splitting started on {saved_filename}"}), 202
 
     except Exception as e:
         print(f"[ERROR] Failed to process file: {e}")
