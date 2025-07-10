@@ -94,20 +94,19 @@ def split_audio():
         return jsonify({"error": "No selected file"}), 400
 
     allowed_extensions = ['mp3', 'wav', 'm4a']
-filename = secure_filename(file.filename)
-request_file_type = request.form.get("file_type")
+    filename = secure_filename(file.filename)
+    request_file_type = request.form.get("file_type")
 
-if request_file_type:
-    extension = request_file_type.lower()
-else:
-    extension = filename.split('.')[-1].lower()
-
-
+    if request_file_type:
+        extension = request_file_type.lower()
+    else:
+        extension = filename.split('.')[-1].lower()
 
     if extension not in allowed_extensions:
-        return jsonify({"error": f"Invalid file extension: .{extension}. Allowed: {allowed_extensions}"}), 400
+        return jsonify({
+            "error": f"Invalid file extension: .{extension}. Allowed: {allowed_extensions}"
+        }), 400
 
-    # שמור תמיד בשם בטוח עם הסיומת הנכונה
     saved_filename = f"1.{extension}"
     filepath = os.path.join(UPLOAD_FOLDER, saved_filename)
 
@@ -137,7 +136,10 @@ else:
         clear_output_folder()
         output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-        thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id, webhook_url, base_id))
+        thread = threading.Thread(
+            target=split_audio_background,
+            args=(filepath, output_pattern, meeting_id, webhook_url, base_id)
+        )
         thread.start()
 
         return jsonify({"message": f"Splitting started on {saved_filename}"}), 202
