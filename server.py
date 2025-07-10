@@ -94,13 +94,14 @@ def split_audio():
         return jsonify({"error": "No selected file"}), 400
 
     allowed_extensions = ['mp3', 'wav', 'm4a']
-    filename = secure_filename(file.filename)
-    request_file_type = request.form.get("file_type")
+filename = secure_filename(file.filename)
+request_file_type = request.form.get("file_type")
 
-    if request_file_type:
+if request_file_type:
     extension = request_file_type.lower()
-    else:
+else:
     extension = filename.split('.')[-1].lower()
+
 
 
     if extension not in allowed_extensions:
