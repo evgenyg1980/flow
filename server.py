@@ -11,13 +11,6 @@ UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "output"
 STATUS_FILE = "status.txt"
 
-DEFAULT_WEBHOOK_URL = "https://hook.eu2.make.com/ni7rqt3m1xtgsb5eiqehunkg97k45jm1"
-
-WEBHOOK_MAP = {
-    "appXLoxRKrV2EDOlB": os.getenv("WEBHOOK_ORI"),
-    "app9jheXQXzelcTrT": os.getenv("WEBHOOK_MARINA")
-}
-
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
@@ -94,41 +87,24 @@ def split_audio():
         return jsonify({"error": "No selected file"}), 400
 
     allowed_extensions = ['mp3', 'wav', 'm4a']
-    filename = secure_filename(file.filename)
-    request_file_type = request.form.get("file_type")
-
-    if request_file_type:
-        extension = request_file_type.lower()
-    else:
-        extension = filename.split('.')[-1].lower()
-
-    if extension not in allowed_extensions:
-        return jsonify({
-            "error": f"Invalid file extension: .{extension}. Allowed: {allowed_extensions}"
-        }), 400
-
-    saved_filename = f"1.{extension}"
-    filepath = os.path.join(UPLOAD_FOLDER, saved_filename)
+    if not any(file.filename.lower().endswith(ext) for ext in allowed_extensions):
+        return jsonify({"error": "Invalid file type. Allowed types: mp3, wav, m4a"}), 400
 
     meeting_id = request.form.get("meeting_id")
     base_id = request.form.get("base_id")
-
     webhook_url = request.form.get("webhook_url")
-    if not webhook_url:
-        for key in request.form:
-            if "webhook_url" in key and "https://hook.eu2.make.com" in request.form[key]:
-                webhook_url = request.form[key]
-                break
-    if not webhook_url:
-        webhook_url = WEBHOOK_MAP.get(base_id, DEFAULT_WEBHOOK_URL)
 
+    if not webhook_url:
+        return jsonify({"error": "Missing webhook_url"}), 400
     if not meeting_id:
         return jsonify({"error": "Missing meeting_id"}), 400
 
     try:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
-        print(f"[INFO] Received file: {saved_filename}")
+        print(f"[INFO] Received file: {filename}")
         print(f"[INFO] Meeting ID: {meeting_id}")
         print(f"[INFO] Base ID: {base_id}")
         print(f"[INFO] Webhook URL: {webhook_url}")
@@ -136,13 +112,10 @@ def split_audio():
         clear_output_folder()
         output_pattern = os.path.join(OUTPUT_FOLDER, "part_%03d.mp3")
 
-        thread = threading.Thread(
-            target=split_audio_background,
-            args=(filepath, output_pattern, meeting_id, webhook_url, base_id)
-        )
+        thread = threading.Thread(target=split_audio_background, args=(filepath, output_pattern, meeting_id, webhook_url, base_id))
         thread.start()
 
-        return jsonify({"message": f"Splitting started on {saved_filename}"}), 202
+        return jsonify({"message": "Splitting started"}), 202
 
     except Exception as e:
         print(f"[ERROR] Failed to process file: {e}")
